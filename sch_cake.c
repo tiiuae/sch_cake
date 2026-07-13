@@ -65,7 +65,15 @@
 #include <linux/reciprocal_div.h>
 #include <net/netlink.h>
 #include <linux/version.h>
+/* RHEL 8's kernel backports newer net/sched UAPI (e.g. TCQ_ETS_MAX_BANDS) into
+ * its own headers. The bundled pkt_sched.h shadows them and breaks the kernel's
+ * net/pkt_cls.h. On RHEL >= 8 use the in-kernel header instead of the bundle.
+ */
+#if defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(8, 0)
+#include <net/pkt_sched.h>
+#else
 #include "pkt_sched.h"
+#endif
 #include <net/pkt_cls.h>
 #include <linux/if_vlan.h>
 #include <net/tcp.h>
@@ -1776,7 +1784,12 @@ static u32 cake_classify(struct Qdisc *sch, struct cake_tin_data **t,
 		goto hash;
 
 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+	/* RHEL 8 backported the newer tcf_classify() taking a tcf_block arg. */
+#if defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(8, 0)
+	result = tcf_classify(skb, NULL, filter, &res, false);
+#else
 	result = tcf_classify(skb, filter, &res, false);
+#endif
 
 	if (result >= 0) {
 #ifdef CONFIG_NET_CLS_ACT
