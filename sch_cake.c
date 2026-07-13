@@ -2724,7 +2724,15 @@ static int cake_change(struct Qdisc *sch, struct nlattr *opt,
 	if (!opt)
 		return -EINVAL;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+#if defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(8, 0)
+	/* RHEL 8 backported strict netlink validation: plain nla_parse_nested()
+	 * requires NLA_F_NESTED on TCA_OPTIONS and fails ("NLA_F_NESTED is
+	 * missing") for the way tc sends qdisc options. Use the deprecated
+	 * (lenient) parser, as mainline does for qdisc option parsing.
+	 */
+	err = nla_parse_nested_deprecated(tb, TCA_CAKE_MAX, opt, cake_policy,
+					  extack);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
 	err = nla_parse_nested(tb, TCA_CAKE_MAX, opt, cake_policy);
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
 	err = nla_parse_nested(tb, TCA_CAKE_MAX, opt, cake_policy, NULL);
