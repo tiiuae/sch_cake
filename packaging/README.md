@@ -7,6 +7,25 @@ out-of-tree from this backport tree. Two delivery options.
 > 4.18 (`net/gso.h`, `qdisc_drop_reason`, `get_random_u16`, `iph_totlen`, ...)
 > and will not compile. This tree carries the compat shims that do.
 
+## RHEL 8 source compatibility patch
+
+RHEL 8's "4.18" kernel is heavily backported and behaves like a hybrid: some
+net/sched APIs match a much newer kernel while the upstream-4.18 shims in this
+tree assume vanilla 4.18. Two RHEL-guarded fixes are applied in `sch_cake.c`
+(all behind `RHEL_RELEASE_CODE`, so non-RHEL kernels are unaffected):
+
+1. **`tcf_classify()` signature** — RHEL 8 backported the newer form taking a
+   `tcf_block *`. On RHEL>=8 the call is
+   `tcf_classify(skb, NULL, filter, &res, false)`.
+2. **Bundled `pkt_sched.h` shadows the kernel's** — RHEL 8's
+   `uapi/linux/pkt_sched.h` already defines `TCA_CAKE_*` and `TCQ_ETS_MAX_BANDS`;
+   the bundled header hid them and broke the kernel's `net/pkt_cls.h`. On RHEL>=8
+   we `#include <net/pkt_sched.h>` (kernel headers) instead of the bundle.
+
+Symptoms this fixes (seen building on `4.18.0-553.el8_10`):
+`TCQ_ETS_MAX_BANDS undeclared` and `tcf_classify ... incompatible pointer type /
+too few arguments`.
+
 ## Option A (preferred): prebuilt kmod RPM
 
 Build a binary-module RPM on a host whose kernel matches the target nodes. The
